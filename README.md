@@ -14,14 +14,20 @@ Built with React + Vite + TypeScript, Tailwind CSS, shadcn/ui, Supabase (Auth + 
 ## 1. Create a Supabase project
 
 1. Go to <https://supabase.com/dashboard> → **New project**. Pick a name, a strong DB password and a region near you.
-2. When it's ready, open **SQL Editor → New query**, paste the contents of
-   [`supabase/migrations/20261113000000_init_hydrate.sql`](supabase/migrations/20261113000000_init_hydrate.sql) and click **Run**.
-   (Or with the Supabase CLI: `npx supabase link --project-ref <ref> && npx supabase db push`.)
-3. **Authentication → URL Configuration**
+2. Apply the migrations in [`supabase/migrations/`](supabase/migrations) **in filename order** (SQL Editor → New query → paste → Run),
+   or with the CLI: `npx supabase link --project-ref <ref> && npx supabase db push`.
+   In `*_push_cron.sql`, replace the project ref in the function URL with yours.
+3. Deploy the push edge functions (both with JWT verification **off**; they authenticate themselves):
+   ```bash
+   npx supabase functions deploy send-reminders --no-verify-jwt
+   npx supabase functions deploy push-action --no-verify-jwt
+   ```
+   VAPID keys are generated automatically on the first scheduler run and stored in Supabase Vault.
+4. **Authentication → URL Configuration**
    - **Site URL**: `http://localhost:5173` for local dev (later your deployed URL, e.g. `https://<user>.github.io/hydrate/`).
    - **Redirect URLs**: add both of the above.
-4. **Authentication → Providers → Email**: enabled by default. Leave *Confirm email* on for production; switch it off while developing if you want instant sign-up.
-5. **Project Settings → API** (or the **Connect** button): copy the **Project URL** and the **anon / publishable** key.
+5. **Authentication → Providers → Email**: enabled by default. Leave *Confirm email* on for production; switch it off while developing if you want instant sign-up.
+6. **Project Settings → API** (or the **Connect** button): copy the **Project URL** and the **anon / publishable** key.
 
 > ⚠️ Never use the `service_role` / secret key in this app. It bypasses RLS. The frontend refuses to start if one is supplied.
 
@@ -40,7 +46,8 @@ Other scripts:
 
 | Command | What it does |
 |---|---|
-| `npm test` | Unit tests for the reminder scheduler and streak logic (Vitest) |
+| `npm test` | Unit tests: reminder scheduler, streaks, Web Push encryption/VAPID (Vitest) |
+| `node scripts/gen-icons.mjs` | Regenerate PNG app icons from `public/icons/icon.svg` |
 | `npm run typecheck` | TypeScript project check |
 | `npm run build` | Type-check + production build to `dist/` |
 | `npm run preview` | Serve the production build locally |
@@ -62,33 +69,33 @@ The app uses a hash router (`/#/history`), so no server rewrite rules are needed
 
 ## How reminders work (please read)
 
-For this MVP the scheduler runs **in the browser**:
+Reminders are delivered two ways, and the app picks the best one per device automatically:
 
-> **Keep a Hydrate tab open.** It can be in the background or minimised, but if the browser is closed, no reminders fire.
-> Installing it as an app (Chrome → ⋮ → *Cast, save and share → Install*; Safari → *File → Add to Dock*) keeps it running unobtrusively.
+**1. Background push (preferred).** When you tap **Start** and allow notifications, the device subscribes to Web Push.
+A Supabase cron job runs every minute, finds users whose reminder is due **in their own timezone and waking hours**, and sends
+an encrypted push to each of their devices, so reminders arrive **even when Hydrate is closed**. On iPhone/iPad this needs
+iOS 16.4+ and Hydrate added to the Home Screen (Safari → Share → *Add to Home Screen*, then open it from that icon).
+**Reminders → Test** sends a real push end-to-end.
 
-Reliability safeguards in [`src/reminders/`](src/reminders):
+```
+pg_cron (every minute) ─▶ edge fn send-reminders ─▶ claim_due_push_reminders()  (row-locked, stamps last_reminded_at)
+                                         └─▶ RFC 8291 encrypt + VAPID ─▶ Apple / Google / Mozilla push ─▶ sw.js shows it
+Notification buttons (Log 250 ml / Snooze) ─▶ sw.js ─▶ edge fn push-action (per-device action token, no session needed)
+```
+
+**2. In-browser scheduler (fallback).** Where push isn't available (e.g. iPhone Safari tab, push blocked), a client
+scheduler runs while a Hydrate tab is open (background/minimised is fine). When push is active on a device, the local
+scheduler only drives the countdown and never notifies, so you never get two notifications for one reminder.
 
 | Concern | How it's handled |
 |---|---|
-| Background-tab timer throttling | Ticks come from a dedicated **Web Worker** (exempt from Chrome's intensive throttling) plus a precise main-thread timeout. |
-| Laptop sleep / frozen tab | Re-evaluates on `visibilitychange`, `focus`, `pageshow` and `online`. Missed slots collapse into **one** catch-up reminder. |
-| Waking hours | `decide()` never fires outside `[wake, sleep)`; a slot missed overnight is skipped silently and the next reminder is moved to wake-up time. |
-| Duplicate notifications | Schedule state lives in `localStorage` and the fire decision runs inside a **Web Lock**, so only one tab fires per slot. Notifications also share a `tag`, so the OS replaces rather than stacks them. |
-| Drinking resets the clock | The next reminder is `interval` after the latest of: reminder fired, water logged, or reminders started/resumed. |
-| Permission denied | Reminders still appear **in-app** (toast) while the page is visible. |
-| Sound | Soft two-note chime via Web Audio (unlocked on your first click). Falls back to the OS sound if audio is locked. |
-| Android | Notifications are shown through the service worker (`public/sw.js`), which is also what enables the action buttons. |
-
-### Web Push roadmap (closed-browser reminders)
-
-The engine only talks to the `ReminderChannel` interface (`src/reminders/channels.ts`) and the scheduling math is pure (`src/reminders/schedule.ts`). To add true push:
-
-1. Generate VAPID keys; subscribe with `registration.pushManager.subscribe()` and store the subscription in a new `push_subscriptions` table (RLS: own rows).
-2. A Supabase Edge Function on a cron (every 5 min) reuses `schedule.ts` against `reminder_settings` + latest `hydration_logs`, and sends pushes with `web-push`.
-3. `public/sw.js` already handles the `push` event. Disable the client scheduler when a push subscription is active.
-
----
+| Same rules everywhere | Due = latest of (started/resumed, last reminder, last drink) + interval, or a snooze; only inside `[wake, sleep)` (overnight windows supported). Client: `src/reminders/schedule.ts`; server: `claim_due_push_reminders()`. |
+| Duplicates | Server claims due rows with `FOR UPDATE SKIP LOCKED` and stamps them; client tabs coordinate via `localStorage` + a Web Lock; notifications share a `tag`/push `Topic` so the OS replaces rather than stacks. |
+| Background throttling / sleep (fallback) | Web Worker ticks + re-checks on `visibilitychange`/`focus`/`pageshow`/`online`; missed slots collapse into one catch-up, never outside waking hours. |
+| Dead devices | Push endpoints returning 404/410 (or failing 10× in a row) are deleted automatically. |
+| Shared devices | Signing out unsubscribes the browser so the next account there doesn't get your reminders. |
+| Secrets | VAPID private key and cron secret live in **Supabase Vault**; only the public VAPID key is exposed (via RPC). |
+| Permission denied | Reminders still appear **in-app** (toast + chime) while the page is visible. |
 
 ## Database
 
@@ -100,6 +107,9 @@ The engine only talks to the `ReminderChannel` interface (`src/reminders/channel
 | `hydration_logs` | `id`, `user_id`, `amount_ml` (1–5000), `logged_at`, `timezone` (the device's IANA zone at logging time), `created_at`. Index on `(user_id, logged_at desc)`. |
 | `reminder_settings` | One row per user (`user_id` unique): `interval_minutes` ∈ {30,45,60,90}, `wake_time`, `sleep_time` (must differ), `notifications_enabled` (running / paused), `sound_enabled`. Auto-created on sign-up. |
 | `daily_summaries` | `(user_id, summary_date)` unique; `total_ml`, `goal_ml`, `goal_completed`, `entry_count`. **Maintained by triggers** on `hydration_logs` using each log's local date. Read-only for clients. |
+| `push_subscriptions` | One row per device push endpoint (`endpoint` unique, `p256dh`, `auth`, private `action_token`). Managed via `register_push_subscription` / `unregister_push_subscription` RPCs. |
+
+`reminder_settings` also carries server schedule state for push: `resumed_at`, `last_reminded_at`, `snooze_until`, `snoozed_at`.
 
 Every table has RLS enabled with `auth.uid()`-scoped policies. `anon` has no table access.
 
@@ -112,9 +122,11 @@ src/
   hooks/           useHistory (summaries, stats, streaks)
   reminders/       schedule.ts (pure), engine.ts, channels.ts, sound.ts, __tests__/
   pages/           AuthPage, Dashboard, History, Reminders, Settings
-  lib/             supabase client, time + validation helpers
-supabase/migrations/   SQL schema, triggers, RLS
-public/sw.js           service worker (notifications, actions, push stub)
+  lib/             supabase client, push subscription, time + validation helpers
+supabase/migrations/   SQL schema, triggers, RLS, push + cron
+supabase/functions/    send-reminders, push-action, _shared/webpush.ts (RFC 8291/8292 on WebCrypto)
+public/sw.js           service worker (push, notifications, action buttons)
+public/manifest.webmanifest + icons/   installable web app (needed for iPhone notifications)
 ```
 
 ## Troubleshooting
@@ -122,5 +134,7 @@ public/sw.js           service worker (notifications, actions, push stub)
 - **"Connect Supabase to get started" screen**: `.env.local` is missing or the dev server wasn't restarted.
 - **Sign-up says "check your inbox"**: email confirmation is on. Confirm via the link, or disable it in Supabase for dev.
 - **Sign-up fails with "Email address … is invalid" / "not authorized"**: Supabase's built-in email sender only delivers to your project's team members and is heavily rate-limited. For real users either turn **Confirm email** off (Authentication → Sign In / Providers → Email) or configure custom SMTP (Authentication → Emails → SMTP).
+- **iPhone says notifications aren't supported**: add Hydrate to the Home Screen and open it from that icon (iOS 16.4+).
+- **Background reminders say "Off"**: tap **Start** (or **Test**) after allowing notifications; check Supabase → Edge Functions logs for `send-reminders`.
 - **No system notifications**: check the site's notification permission (padlock icon in the address bar) and OS Focus / Do Not Disturb. Use **Reminders → Test**.
 - **macOS**: System Settings → Notifications → your browser → Allow notifications.
