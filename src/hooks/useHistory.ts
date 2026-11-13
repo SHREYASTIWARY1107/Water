@@ -15,7 +15,8 @@ export interface DayPoint {
 
 export interface HistoryStats {
   dailyAverage: number
-  completionRate: number
+  /** null until there's at least one finished (or completed) day to judge */
+  completionRate: number | null
   currentStreak: number
   bestStreak: number
   trackedDays: number
@@ -122,7 +123,7 @@ export function useHistory(days: number) {
     const window = firstIdx === -1 ? [] : points.slice(firstIdx).filter((p) => p.date !== todayKey || p.completed)
     const stats: HistoryStats = {
       dailyAverage: tracked.length ? Math.round(tracked.reduce((s, p) => s + p.total, 0) / tracked.length) : 0,
-      completionRate: window.length ? window.filter((p) => p.completed).length / window.length : 0,
+      completionRate: window.length ? window.filter((p) => p.completed).length / window.length : null,
       currentStreak: current,
       bestStreak: best,
       trackedDays: tracked.length,

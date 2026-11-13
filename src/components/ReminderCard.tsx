@@ -42,8 +42,8 @@ export function ReminderCard({ compact = false }: { compact?: boolean }) {
 
   return (
     <Card className="overflow-hidden">
-      <CardContent className={cn('flex items-center gap-5', compact && 'gap-4')}>
-        <div className="relative size-20 shrink-0">
+      <CardContent className={cn('flex flex-wrap items-center gap-x-5 gap-y-4 sm:flex-nowrap', compact && 'gap-x-4')}>
+        <div className="relative size-18 shrink-0 sm:size-20">
           <svg viewBox="0 0 80 80" className="size-full -rotate-90">
             <circle cx="40" cy="40" r={R} className="fill-none stroke-secondary" strokeWidth="6" />
             <circle
@@ -68,7 +68,7 @@ export function ReminderCard({ compact = false }: { compact?: boolean }) {
           </span>
         </div>
 
-        <div className="min-w-0 flex-1">
+        <div className="min-w-0 flex-1 basis-40">
           <p className="text-xs font-medium tracking-wide text-muted-foreground uppercase">
             {!enabled ? (everStarted ? 'Reminders paused' : 'Reminders off') : snapshot.status === 'resting' ? 'Resting — outside waking hours' : 'Next reminder'}
           </p>
@@ -97,7 +97,7 @@ export function ReminderCard({ compact = false }: { compact?: boolean }) {
           )}
         </div>
 
-        <div className="flex shrink-0 flex-col gap-2">
+        <div className="flex w-full shrink-0 gap-2 sm:w-auto sm:flex-col [&>*]:flex-1 sm:[&>*]:flex-none">
           {enabled ? (
             <Button variant="secondary" size="sm" disabled={busy} onClick={() => run(pause)}>
               <Pause /> Pause

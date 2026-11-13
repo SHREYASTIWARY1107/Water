@@ -89,7 +89,7 @@ export function AppShell() {
 
       <main className="mx-auto max-w-6xl px-4 pt-6 sm:px-6 sm:pt-10">
         {status === 'loading' ? (
-          <div className="grid gap-5 lg:grid-cols-[1.1fr_1fr]">
+          <div className="grid grid-cols-1 gap-5 lg:grid-cols-[1.1fr_1fr]">
             <Skeleton className="h-[26rem] rounded-2xl" />
             <div className="space-y-5">
               <Skeleton className="h-32 rounded-2xl" />

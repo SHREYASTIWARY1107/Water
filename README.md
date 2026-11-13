@@ -121,5 +121,6 @@ public/sw.js           service worker (notifications, actions, push stub)
 
 - **"Connect Supabase to get started" screen**: `.env.local` is missing or the dev server wasn't restarted.
 - **Sign-up says "check your inbox"**: email confirmation is on. Confirm via the link, or disable it in Supabase for dev.
+- **Sign-up fails with "Email address … is invalid" / "not authorized"**: Supabase's built-in email sender only delivers to your project's team members and is heavily rate-limited. For real users either turn **Confirm email** off (Authentication → Sign In / Providers → Email) or configure custom SMTP (Authentication → Emails → SMTP).
 - **No system notifications**: check the site's notification permission (padlock icon in the address bar) and OS Focus / Do Not Disturb. Use **Reminders → Test**.
 - **macOS**: System Settings → Notifications → your browser → Allow notifications.

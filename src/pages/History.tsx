@@ -82,14 +82,22 @@ function RangeView({ days, title }: { days: number; title: string }) {
   const { points, stats, loading, error } = useHistory(days)
   const { goal } = useHydration()
   const [showTable, setShowTable] = useState(false)
-  const max = Math.max(goal * 1.15, ...points.map((p) => p.total))
+  const max = Math.max(goal * 1.1, ...points.map((p) => p.total))
+  const step = max > 4000 ? 2000 : max > 2000 ? 1000 : 500
+  const yMax = Math.ceil(max / step) * step
+  const ticks = Array.from({ length: yMax / step + 1 }, (_, i) => i * step)
 
   return (
     <div className="space-y-5">
       <StatGrid
         items={[
           { icon: TrendingUp, label: 'Daily average', value: stats.dailyAverage ? `${stats.dailyAverage.toLocaleString()} ml` : '—', sub: `${stats.trackedDays} tracked ${stats.trackedDays === 1 ? 'day' : 'days'}` },
-          { icon: CalendarCheck2, label: 'Goal completion', value: `${Math.round(stats.completionRate * 100)}%`, sub: 'since you started tracking' },
+          {
+            icon: CalendarCheck2,
+            label: 'Goal completion',
+            value: stats.completionRate == null ? '—' : `${Math.round(stats.completionRate * 100)}%`,
+            sub: stats.completionRate == null ? 'after your first full day' : 'of days since you started',
+          },
           { icon: Flame, label: 'Current streak', value: `${stats.currentStreak} ${stats.currentStreak === 1 ? 'day' : 'days'}`, sub: 'consecutive goals met' },
           { icon: Trophy, label: 'Best streak', value: `${stats.bestStreak} ${stats.bestStreak === 1 ? 'day' : 'days'}`, sub: `Total ${(stats.totalMl / 1000).toFixed(1)} L in range` },
         ]}
@@ -152,9 +160,10 @@ function RangeView({ days, title }: { days: number; title: string }) {
                     tickLine={false}
                     axisLine={false}
                     tick={{ fill: 'var(--muted-foreground)', fontSize: 11 }}
-                    tickFormatter={(v: number) => (v >= 1000 ? `${v / 1000}L` : `${v}`)}
-                    domain={[0, Math.ceil(max / 500) * 500]}
-                    width={44}
+                    tickFormatter={(v: number) => (v === 0 ? '0' : v >= 1000 ? `${v / 1000} L` : `${v} ml`)}
+                    domain={[0, yMax]}
+                    ticks={ticks}
+                    width={52}
                   />
                   <Tooltip content={<ChartTooltip />} cursor={{ fill: 'var(--muted)', radius: 8 } as object} />
                   <ReferenceLine y={goal} stroke="var(--primary)" strokeDasharray="4 4" strokeOpacity={0.6} />

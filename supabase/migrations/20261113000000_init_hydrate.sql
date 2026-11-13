@@ -4,7 +4,7 @@
 -- Every table has Row Level Security: users can only see/modify their own rows.
 -- =============================================================================
 
-create extension if not exists pgcrypto;
+-- gen_random_uuid() is built into Postgres 13+; no extension needed.
 
 -- -----------------------------------------------------------------------------
 -- Helpers
@@ -13,6 +13,7 @@ create or replace function public.is_valid_timezone(tz text)
 returns boolean
 language plpgsql
 stable
+set search_path = ''
 as $$
 begin
   if tz is null or char_length(tz) = 0 then
@@ -28,6 +29,7 @@ $$;
 create or replace function public.set_updated_at()
 returns trigger
 language plpgsql
+set search_path = ''
 as $$
 begin
   new.updated_at := now();
@@ -189,6 +191,7 @@ create trigger hydration_logs_summary_sync
 create or replace function public.hydration_logs_before_write()
 returns trigger
 language plpgsql
+set search_path = ''
 as $$
 begin
   if not public.is_valid_timezone(new.timezone) then
