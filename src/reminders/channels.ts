@@ -18,15 +18,30 @@ export interface ReminderChannel {
   deliver(p: ReminderPayload): Promise<DeliveryResult>
 }
 
-export type PermissionState = NotificationPermission | 'unsupported'
+/** 'needs-install': iOS/iPadOS Safari only exposes notifications to Home Screen web apps. */
+export type PermissionState = NotificationPermission | 'unsupported' | 'needs-install'
+
+export function isIOS(): boolean {
+  const ua = navigator.userAgent
+  // iPadOS reports as Mac; detect via touch support.
+  return /iPhone|iPad|iPod/.test(ua) || (/Macintosh/.test(ua) && navigator.maxTouchPoints > 1)
+}
+
+export function isStandalone(): boolean {
+  return (
+    window.matchMedia?.('(display-mode: standalone)').matches ||
+    (navigator as Navigator & { standalone?: boolean }).standalone === true
+  )
+}
 
 export function notificationPermission(): PermissionState {
-  if (typeof window === 'undefined' || !('Notification' in window)) return 'unsupported'
+  if (typeof window === 'undefined') return 'unsupported'
+  if (!('Notification' in window)) return isIOS() && !isStandalone() ? 'needs-install' : 'unsupported'
   return Notification.permission
 }
 
 export async function requestNotificationPermission(): Promise<PermissionState> {
-  if (!('Notification' in window)) return 'unsupported'
+  if (!('Notification' in window)) return notificationPermission()
   if (Notification.permission !== 'default') return Notification.permission
   try {
     return await Notification.requestPermission()

@@ -145,6 +145,11 @@ export function ReminderProvider({ children }: { children: ReactNode }) {
         description: 'Reminders will appear inside Hydrate while it is open. Allow notifications in your browser’s site settings for system alerts.',
         duration: 9000,
       })
+    } else if (p === 'needs-install') {
+      toast.warning('Add Hydrate to your Home Screen for notifications', {
+        description: 'On iPhone, tap Share → Add to Home Screen, then open Hydrate from that icon. In-app reminders work meanwhile.',
+        duration: 10000,
+      })
     } else if (p === 'unsupported') {
       toast.warning('This browser does not support notifications — in-app reminders only.')
     }

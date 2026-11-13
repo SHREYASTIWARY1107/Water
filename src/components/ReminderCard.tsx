@@ -92,7 +92,13 @@ export function ReminderCard({ compact = false }: { compact?: boolean }) {
           )}
           {enabled && permission !== 'granted' && (
             <p className="mt-1 text-xs text-amber-600 dark:text-amber-400">
-              {permission === 'denied' ? 'Notifications blocked — showing in-app alerts.' : 'Allow notifications for system alerts.'}
+              {permission === 'denied'
+                ? 'Notifications blocked — showing in-app alerts.'
+                : permission === 'needs-install'
+                  ? 'Add to Home Screen to get iPhone notifications.'
+                  : permission === 'unsupported'
+                    ? 'This browser can’t show notifications — in-app alerts only.'
+                    : 'Allow notifications for system alerts.'}
             </p>
           )}
         </div>

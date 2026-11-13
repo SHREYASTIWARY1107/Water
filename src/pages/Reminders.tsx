@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react'
-import { AlertTriangle, BellRing, CheckCircle2, Info, Moon, Sun, Volume2 } from 'lucide-react'
+import { AlertTriangle, BellRing, CheckCircle2, Info, Moon, Share, Sun, Volume2 } from 'lucide-react'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
@@ -140,9 +140,11 @@ export function Reminders() {
                 ? 'Allowed — you’ll get system notifications.'
                 : permission === 'denied'
                   ? 'Blocked. Enable them in your browser’s site settings (lock icon in the address bar).'
-                  : permission === 'unsupported'
-                    ? 'Not supported in this browser — in-app alerts only.'
-                    : 'Not yet allowed.'
+                  : permission === 'needs-install'
+                    ? 'On iPhone/iPad, notifications only work after adding Hydrate to your Home Screen (see below).'
+                    : permission === 'unsupported'
+                      ? 'Not supported in this browser — in-app alerts only.'
+                      : 'Not yet allowed.'
             }
             action={
               permission === 'granted' ? (
@@ -159,6 +161,8 @@ export function Reminders() {
         </CardContent>
       </Card>
 
+      {permission === 'needs-install' && <IOSInstallCard />}
+
       <Card className="border-primary/20 bg-accent/40">
         <CardContent className="flex gap-3 text-sm">
           <Info className="mt-0.5 size-4 shrink-0 text-primary" />
@@ -173,6 +177,28 @@ export function Reminders() {
         </CardContent>
       </Card>
     </div>
+  )
+}
+
+function IOSInstallCard() {
+  return (
+    <Card className="border-primary/30">
+      <CardContent className="space-y-3 text-sm">
+        <p className="font-medium">Get notifications on iPhone</p>
+        <ol className="list-decimal space-y-1.5 pl-5 text-muted-foreground">
+          <li>
+            Tap the <Share className="inline size-4 align-text-bottom text-primary" aria-label="Share" /> Share button in Safari’s toolbar.
+          </li>
+          <li>
+            Choose <span className="font-medium text-foreground">Add to Home Screen</span>, then <span className="font-medium text-foreground">Add</span>.
+          </li>
+          <li>Open Hydrate from the new Home Screen icon, sign in, and tap Start → Allow.</li>
+        </ol>
+        <p className="text-xs text-muted-foreground">
+          iOS pauses web apps that aren’t on screen, so reminders fire while Hydrate is open. Background push for iPhone is on the roadmap.
+        </p>
+      </CardContent>
+    </Card>
   )
 }
 
