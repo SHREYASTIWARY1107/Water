@@ -11,7 +11,8 @@ export function WaterBottle({ progress, className }: { progress: number; classNa
   // Inner fillable area runs from y=70 (top) to y=300 (bottom).
   const top = 70
   const bottom = 300
-  const level = bottom - (bottom - top) * p
+  // At 0% sink the waves fully below the bottle so it reads as empty.
+  const level = p === 0 ? bottom + 14 : bottom - (bottom - top) * p
   const wave = (amp: number, len: number) => {
     // Path twice the width so translateX(-50%) loops seamlessly.
     let d = `M0 ${amp}`

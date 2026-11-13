@@ -77,18 +77,18 @@ export function Reminders() {
           <CardDescription>You’ll never be notified outside this window. Overnight windows are supported.</CardDescription>
         </CardHeader>
         <CardContent className="space-y-4">
-          <div className="grid grid-cols-2 gap-4">
-            <div className="space-y-2">
+          <div className="grid grid-cols-2 gap-3 sm:gap-4">
+            <div className="min-w-0 space-y-2">
               <Label htmlFor="wake" className="flex items-center gap-1.5">
                 <Sun className="size-3.5 text-amber-500" /> Wake up
               </Label>
-              <Input id="wake" type="time" value={wake} onChange={(e) => setWake(e.target.value)} required />
+              <Input id="wake" type="time" value={wake} onChange={(e) => setWake(e.target.value)} required className="min-w-0 appearance-none text-left [&::-webkit-date-and-time-value]:text-left" />
             </div>
-            <div className="space-y-2">
+            <div className="min-w-0 space-y-2">
               <Label htmlFor="sleep" className="flex items-center gap-1.5">
                 <Moon className="size-3.5 text-indigo-400" /> Bedtime
               </Label>
-              <Input id="sleep" type="time" value={sleep} onChange={(e) => setSleep(e.target.value)} required />
+              <Input id="sleep" type="time" value={sleep} onChange={(e) => setSleep(e.target.value)} required className="min-w-0 appearance-none text-left [&::-webkit-date-and-time-value]:text-left" />
             </div>
           </div>
           {timeError && <p className="text-xs text-destructive">{timeError}</p>}

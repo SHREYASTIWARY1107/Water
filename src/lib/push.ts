@@ -33,17 +33,57 @@ async function registration(timeoutMs = 8000): Promise<ServiceWorkerRegistration
   ])
 }
 
-/** Subscribe this browser (if permission is granted) and register it with the server. Idempotent. */
-export async function ensurePushSubscription(): Promise<PushStatus> {
-  if (!pushSupported()) return 'unsupported'
-  if (Notification.permission !== 'granted') return 'inactive'
-  try {
-    const reg = await registration()
-    if (!reg) return 'error'
-    const { data: key, error } = await supabase.rpc('get_vapid_public_key')
-    if (error || !key) return 'error'
+// Cached so that pushManager.subscribe() can run immediately inside a tap handler:
+// Safari/iOS only allows subscribing while the user gesture is still "active".
+let cachedKey: string | null = null
+let cachedReg: ServiceWorkerRegistration | null = null
+let lastError: string | null = null
 
+export function lastPushError(): string | null {
+  return lastError
+}
+
+/** Warm the VAPID key + service worker registration (call when the app loads). */
+export async function prefetchPush(): Promise<void> {
+  if (!pushSupported()) return
+  try {
+    cachedReg = cachedReg ?? (await registration())
+    if (!cachedKey) {
+      const { data } = await supabase.rpc('get_vapid_public_key')
+      cachedKey = data ?? null
+    }
+  } catch {
+    /* retried on demand */
+  }
+}
+
+/**
+ * Subscribe this browser and register it with the server. Idempotent.
+ * interactive=true (only from a tap handler) may show the permission prompt via subscribe().
+ */
+export async function ensurePushSubscription({ interactive = false }: { interactive?: boolean } = {}): Promise<PushStatus> {
+  lastError = null
+  if (!pushSupported()) return 'unsupported'
+  const perm = Notification.permission
+  if (perm === 'denied' || (perm === 'default' && !interactive)) return 'inactive'
+  try {
+    const reg = cachedReg ?? (await registration())
+    if (!reg) {
+      lastError = 'Service worker not ready — reload the app and try again.'
+      return 'error'
+    }
+    cachedReg = reg
+    let key = cachedKey
+    // Subscribe FIRST (while the tap is still active), using the cached key when we have one.
     let sub = await reg.pushManager.getSubscription()
+    if (!key) {
+      const { data, error } = await supabase.rpc('get_vapid_public_key')
+      if (error || !data) {
+        lastError = error?.message ?? 'Server push key unavailable.'
+        return 'error'
+      }
+      key = cachedKey = data
+    }
     const current = sub?.options?.applicationServerKey
     if (sub && current && bytesToB64url(current) !== key) {
       await sub.unsubscribe() // server keys rotated
@@ -53,17 +93,22 @@ export async function ensurePushSubscription(): Promise<PushStatus> {
 
     const json = sub.toJSON()
     if (!json.endpoint || !json.keys?.p256dh || !json.keys?.auth) return 'error'
+    lastError = null
     const res = await supabase.rpc('register_push_subscription', {
       p_endpoint: json.endpoint,
       p_p256dh: json.keys.p256dh,
       p_auth: json.keys.auth,
       p_user_agent: navigator.userAgent.slice(0, 512),
     })
-    if (res.error) return 'error'
+    if (res.error) {
+      lastError = res.error.message
+      return 'error'
+    }
     return 'active'
   } catch (e) {
     console.warn('[hydrate] push subscribe failed', e)
-    return 'error'
+    lastError = e instanceof Error ? `${e.name}: ${e.message}` : String(e)
+    return Notification.permission === 'granted' ? 'error' : 'inactive'
   }
 }
 

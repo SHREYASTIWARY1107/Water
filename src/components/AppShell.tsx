@@ -60,7 +60,7 @@ export function AppShell() {
 
   return (
     <div className="min-h-dvh pb-28 sm:pb-12">
-      <header className="glass sticky top-0 z-30 border-b">
+      <header className="glass sticky top-0 z-30 border-b pt-[env(safe-area-inset-top)]">
         <div className="mx-auto flex h-14 max-w-6xl items-center justify-between gap-4 px-4 sm:px-6">
           <Logo />
           <nav className="hidden items-center gap-1 rounded-full bg-secondary/70 p-1 sm:flex" aria-label="Main">

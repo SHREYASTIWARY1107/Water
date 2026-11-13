@@ -69,7 +69,7 @@ export function AuthPage({ mode }: { mode: 'login' | 'signup' }) {
   }
 
   return (
-    <div className="grid min-h-dvh lg:grid-cols-2">
+    <div className="grid min-h-dvh pt-[env(safe-area-inset-top)] lg:grid-cols-2">
       <div className="relative hidden overflow-hidden lg:flex lg:flex-col lg:justify-between lg:p-12">
         <div className="absolute inset-0 -z-10 bg-gradient-to-br from-[var(--water-1)]/25 via-transparent to-[var(--water-3)]/20" />
         <Logo className="text-lg" />

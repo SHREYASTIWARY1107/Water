@@ -12,7 +12,7 @@ import {
   type ReminderChannel,
 } from '@/reminders/channels'
 import { playChime, unlockAudio } from '@/reminders/sound'
-import { ensurePushSubscription, pushSupported, sendTestPush, type PushStatus } from '@/lib/push'
+import { ensurePushSubscription, lastPushError, prefetchPush, pushSupported, sendTestPush, type PushStatus } from '@/lib/push'
 import { errorMessage } from '@/lib/supabase'
 import { parseTimeOfDay } from '@/lib/time'
 
@@ -122,6 +122,31 @@ export function ReminderProvider({ children }: { children: ReactNode }) {
     }
   }, [])
 
+  // Warm the push key/registration so a tap can subscribe instantly (required by iOS Safari).
+  useEffect(() => {
+    if (userId) void prefetchPush()
+  }, [userId])
+
+  /** From a tap: subscribe to push first (this may show the permission prompt), then fall back. */
+  const enablePushFromTap = useCallback(async (): Promise<{ perm: PermissionState; push: PushStatus }> => {
+    let s: PushStatus = pushSupported() ? 'inactive' : 'unsupported'
+    if (pushSupported() && notificationPermission() !== 'denied') {
+      s = await ensurePushSubscription({ interactive: true })
+      setPush(s)
+      pushRef.current = s
+      if (s === 'error') {
+        toast.error('Background push couldn’t be enabled', {
+          description: lastPushError() ?? 'Unknown error — in-app reminders still work.',
+          duration: 12000,
+        })
+      }
+    }
+    let p = notificationPermission()
+    if (p === 'default') p = await requestNotificationPermission()
+    setPermission(p)
+    return { perm: p, push: s }
+  }, [])
+
   // (Re)register this device for background push whenever reminders are on and allowed.
   const enabled = settings?.notifications_enabled ?? false
   useEffect(() => {
@@ -192,7 +217,7 @@ export function ReminderProvider({ children }: { children: ReactNode }) {
 
   const start = useCallback(async () => {
     unlockAudio() // we're inside a click handler — allowed to start audio
-    const p = await requestPermission()
+    const { perm: p, push: pushState } = await enablePushFromTap()
     if (p === 'denied') {
       toast.warning('Notifications are blocked', {
         description: 'Reminders will appear inside Hydrate while it is open. Allow notifications in your browser’s site settings for system alerts.',
@@ -216,18 +241,13 @@ export function ReminderProvider({ children }: { children: ReactNode }) {
       }
     }
     setEverStarted(true)
-    let pushState: PushStatus = pushSupported() ? 'inactive' : 'unsupported'
-    if (p === 'granted') {
-      pushState = await ensurePushSubscription()
-      setPush(pushState)
-    }
     toast.success(everStarted ? 'Reminders resumed' : 'Reminders started', {
       description:
         pushState === 'active'
           ? 'Background push is on — reminders arrive even when Hydrate is closed.'
           : 'Keep Hydrate open in a tab (it can be in the background).',
     })
-  }, [requestPermission, updateSettings, startedKey, everStarted])
+  }, [enablePushFromTap, updateSettings, startedKey, everStarted])
 
   const pause = useCallback(async () => {
     const ok = await updateSettings({ notifications_enabled: false })
@@ -237,12 +257,7 @@ export function ReminderProvider({ children }: { children: ReactNode }) {
   const test = useCallback(async () => {
     unlockAudio()
     let p = permission
-    if (p === 'default') p = await requestPermission()
-    if (p === 'granted' && pushRef.current !== 'active') {
-      const s = await ensurePushSubscription()
-      setPush(s)
-      pushRef.current = s
-    }
+    if (pushRef.current !== 'active') p = (await enablePushFromTap()).perm
     if (pushRef.current === 'active') {
       // End-to-end: server → Apple/Google push service → this and your other devices.
       try {
@@ -265,7 +280,7 @@ export function ReminderProvider({ children }: { children: ReactNode }) {
         description: p === 'needs-install' ? 'Add Hydrate to your Home Screen to get notifications.' : 'Allow notifications to get system alerts.',
       })
     }
-  }, [permission, requestPermission])
+  }, [permission, enablePushFromTap])
 
   const value = useMemo<ReminderCtx>(
     () => ({ snapshot, permission, push, enabled, everStarted, start, pause, test, requestPermission }),
