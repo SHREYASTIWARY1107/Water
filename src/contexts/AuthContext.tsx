@@ -3,6 +3,7 @@ import { createContext, useContext, useEffect, useMemo, useState, type ReactNode
 import type { Session, User } from '@supabase/supabase-js'
 import { isSupabaseConfigured, supabase } from '@/lib/supabase'
 import { localTimezone } from '@/lib/time'
+import { unregisterPush } from '@/lib/push'
 
 interface AuthCtx {
   session: Session | null
@@ -67,6 +68,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         return { needsConfirmation: !data.session }
       },
       async signOut() {
+        // Stop server reminders to this browser before the session goes away.
+        await unregisterPush()
         const { error } = await supabase.auth.signOut()
         if (error) throw error
       },

@@ -31,6 +31,11 @@ export type ReminderSettings = {
   sleep_time: string
   notifications_enabled: boolean
   sound_enabled: boolean
+  /** Server-side schedule state (Web Push) */
+  resumed_at: string | null
+  last_reminded_at: string | null
+  snooze_until: string | null
+  snoozed_at: string | null
   created_at: string
   updated_at: string
 }
@@ -65,7 +70,14 @@ export type Database = {
       daily_summaries: Table<DailySummary, Partial<DailySummary>>
     }
     Views: Record<string, never>
-    Functions: Record<string, never>
+    Functions: {
+      get_vapid_public_key: { Args: Record<PropertyKey, never>; Returns: string | null }
+      register_push_subscription: {
+        Args: { p_endpoint: string; p_p256dh: string; p_auth: string; p_user_agent?: string }
+        Returns: string
+      }
+      unregister_push_subscription: { Args: { p_endpoint: string }; Returns: undefined }
+    }
     Enums: Record<string, never>
     CompositeTypes: Record<string, never>
   }

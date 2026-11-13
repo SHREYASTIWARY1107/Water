@@ -8,7 +8,17 @@ import { validateAmount } from '@/lib/validation'
 import type { HydrationLog, Profile, ReminderSettings } from '@/types/database'
 
 type SettingsPatch = Partial<
-  Pick<ReminderSettings, 'interval_minutes' | 'wake_time' | 'sleep_time' | 'notifications_enabled' | 'sound_enabled'>
+  Pick<
+    ReminderSettings,
+    | 'interval_minutes'
+    | 'wake_time'
+    | 'sleep_time'
+    | 'notifications_enabled'
+    | 'sound_enabled'
+    | 'resumed_at'
+    | 'snooze_until'
+    | 'snoozed_at'
+  >
 >
 type ProfilePatch = Partial<Pick<Profile, 'full_name' | 'daily_goal_ml' | 'timezone'>>
 
@@ -127,6 +137,9 @@ export function HydrationProvider({ children }: { children: ReactNode }) {
     void reload()
   }, [userId, reload])
 
+  const reloadRef = useRef(reload)
+  reloadRef.current = reload
+
   // Roll over to a new day at midnight, and refresh when the tab regains focus.
   useEffect(() => {
     if (!userId) return
@@ -138,12 +151,8 @@ export function HydrationProvider({ children }: { children: ReactNode }) {
     const onVis = () => {
       if (document.visibilityState !== 'visible') return
       check()
-      // Pull in entries made on another device/tab while hidden.
-      if (pendingRef.current === 0) {
-        loadToday(userId)
-          .then(setTodayLogs)
-          .catch(() => {})
-      }
+      // Pull in entries / settings changed elsewhere (other device, push actions, server reminders).
+      if (pendingRef.current === 0) void reloadRef.current()
     }
     document.addEventListener('visibilitychange', onVis)
     return () => {

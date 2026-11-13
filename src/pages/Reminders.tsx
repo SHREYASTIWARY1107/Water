@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react'
-import { AlertTriangle, BellRing, CheckCircle2, Info, Moon, Share, Sun, Volume2 } from 'lucide-react'
+import { AlertTriangle, BellRing, CheckCircle2, CloudLightning, Info, Moon, Share, Sun, Volume2 } from 'lucide-react'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
@@ -16,7 +16,7 @@ import { playChime, unlockAudio } from '@/reminders/sound'
 
 export function Reminders() {
   const { settings, updateSettings } = useHydration()
-  const { permission, requestPermission } = useReminders()
+  const { permission, requestPermission, push } = useReminders()
   const [wake, setWake] = useState('07:00')
   const [sleep, setSleep] = useState('22:30')
   const [timeError, setTimeError] = useState<string | null>(null)
@@ -158,24 +158,49 @@ export function Reminders() {
               )
             }
           />
+          <Row
+            icon={<CloudLightning className="size-4" />}
+            title="Background reminders"
+            desc={
+              push === 'active'
+                ? 'On for this device — reminders arrive even when Hydrate is closed.'
+                : push === 'unsupported'
+                  ? permission === 'needs-install'
+                    ? 'Add Hydrate to your Home Screen to enable.'
+                    : 'Not available in this browser — keep a Hydrate tab open.'
+                  : push === 'error'
+                    ? 'Couldn’t register this device. Tap Start or Test to retry.'
+                    : 'Turns on when you start reminders and allow notifications.'
+            }
+            action={
+              push === 'active' ? (
+                <CheckCircle2 className="size-5 text-success" />
+              ) : (
+                <span className="text-xs font-medium text-muted-foreground">{push === 'error' ? 'Retry' : 'Off'}</span>
+              )
+            }
+          />
         </CardContent>
       </Card>
 
       {permission === 'needs-install' && <IOSInstallCard />}
 
-      <Card className="border-primary/20 bg-accent/40">
-        <CardContent className="flex gap-3 text-sm">
-          <Info className="mt-0.5 size-4 shrink-0 text-primary" />
-          <div className="space-y-1.5 text-muted-foreground">
-            <p className="font-medium text-foreground">Keep Hydrate open for reliable reminders</p>
-            <p>
-              Reminders are scheduled in your browser. Keep a Hydrate tab open — it can be in the background or minimised. If your
-              computer sleeps or the tab is frozen, you’ll get one catch-up reminder when it wakes (only during waking hours).
-            </p>
-            <p>Tip: install it as an app (browser menu → “Install Hydrate” / “Add to Dock”) so it’s always running.</p>
-          </div>
-        </CardContent>
-      </Card>
+      {push !== 'active' && (
+        <Card className="border-primary/20 bg-accent/40">
+          <CardContent className="flex gap-3 text-sm">
+            <Info className="mt-0.5 size-4 shrink-0 text-primary" />
+            <div className="space-y-1.5 text-muted-foreground">
+              <p className="font-medium text-foreground">Background push is off on this device</p>
+              <p>
+                Until background push is on, reminders are scheduled in this browser: keep a Hydrate tab open (it can be in the
+                background or minimised). If your computer sleeps or the tab is frozen, you’ll get one catch-up reminder when it
+                wakes — only during waking hours.
+              </p>
+              <p>Tip: install it as an app (browser menu → “Install Hydrate” / “Add to Dock”) so it’s always running.</p>
+            </div>
+          </CardContent>
+        </Card>
+      )}
     </div>
   )
 }
@@ -195,7 +220,7 @@ function IOSInstallCard() {
           <li>Open Hydrate from the new Home Screen icon, sign in, and tap Start → Allow.</li>
         </ol>
         <p className="text-xs text-muted-foreground">
-          iOS pauses web apps that aren’t on screen, so reminders fire while Hydrate is open. Background push for iPhone is on the roadmap.
+          Reminders then arrive as real notifications even when Hydrate is closed (requires iOS 16.4 or later).
         </p>
       </CardContent>
     </Card>

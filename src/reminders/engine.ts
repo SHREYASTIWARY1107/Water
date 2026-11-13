@@ -34,6 +34,10 @@ export interface EngineConfig {
   soundEnabled: boolean
   lastLogAt: number | null
   totalMl: number
+  /** Server-side anchor (reminders resumed / last push reminder), so all devices share one schedule. */
+  externalAnchorAt?: number | null
+  /** Server-side snooze. */
+  externalOverride?: { at: number; setAt: number } | null
   goalMl: number
 }
 
@@ -201,6 +205,18 @@ export class ReminderEngine {
   }
   private memState: ScheduleState | null = null
 
+  /** Local state combined with the server's schedule state. */
+  private merged(cfg: EngineConfig): ScheduleState {
+    const s = this.readState() ?? this.memState ?? this.freshState()
+    const ext = cfg.externalAnchorAt ?? null
+    const lastFiredAt = ext != null ? Math.max(s.lastFiredAt ?? 0, ext) : s.lastFiredAt
+    const o = cfg.externalOverride
+    if (o && (s.overrideSetAt == null || o.setAt > s.overrideSetAt)) {
+      return { ...s, lastFiredAt, overrideAt: o.at, overrideSetAt: o.setAt }
+    }
+    return { ...s, lastFiredAt }
+  }
+
   private emit(s: EngineSnapshot) {
     this.snapshot = s
     for (const l of this.listeners) l(s)
@@ -232,7 +248,7 @@ export class ReminderEngine {
     this.evaluating = true
     try {
       await this.withLock(async () => {
-        const state = this.readState() ?? this.memState ?? this.freshState()
+        const state = this.merged(cfg)
         const now = Date.now()
         const d = decide(now, state, cfg.lastLogAt, cfg.intervalMinutes, cfg.window)
 
@@ -255,7 +271,7 @@ export class ReminderEngine {
       return
     }
 
-    const state = this.readState() ?? this.memState ?? this.freshState()
+    const state = this.merged(cfg)
     const now = Date.now()
     const nextAt = computeNextReminder(state, cfg.lastLogAt, cfg.intervalMinutes, cfg.window)
     const awake = isWithinWakingHours(now, cfg.window)
