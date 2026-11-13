@@ -1,4 +1,4 @@
-import { NavLink, Outlet } from 'react-router-dom'
+import { NavLink, Outlet, useLocation } from 'react-router-dom'
 import { BarChart3, Bell, Droplets, LogOut, Monitor, Moon, Settings, Sun } from 'lucide-react'
 import { toast } from 'sonner'
 import { useAuth } from '@/contexts/AuthContext'
@@ -8,6 +8,7 @@ import { Button } from '@/components/ui/button'
 import { Skeleton } from '@/components/ui/skeleton'
 import { errorMessage } from '@/lib/supabase'
 import { cn } from '@/lib/utils'
+import { ErrorBoundary } from '@/components/ErrorBoundary'
 
 const NAV = [
   { to: '/', label: 'Today', icon: Droplets, end: true },
@@ -47,6 +48,7 @@ function ThemeToggle() {
 export function AppShell() {
   const { signOut } = useAuth()
   const { status, loadError, reload } = useHydration()
+  const { pathname } = useLocation()
 
   const logout = async () => {
     try {
@@ -105,7 +107,9 @@ export function AppShell() {
             </Button>
           </div>
         ) : (
-          <Outlet />
+          <ErrorBoundary key={pathname}>
+            <Outlet />
+          </ErrorBoundary>
         )}
       </main>
 

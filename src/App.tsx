@@ -14,6 +14,7 @@ import { Reminders } from '@/pages/Reminders'
 import { Settings } from '@/pages/Settings'
 import { isSupabaseConfigured } from '@/lib/supabase'
 import { Card, CardContent } from '@/components/ui/card'
+import { ErrorBoundary } from '@/components/ErrorBoundary'
 
 const History = lazy(() => import('@/pages/History').then((m) => ({ default: m.History })))
 
@@ -41,6 +42,7 @@ export default function App() {
   return (
     <ThemeProvider>
       <Toaster />
+      <ErrorBoundary>
       {!isSupabaseConfigured ? (
         <SetupRequired />
       ) : (
@@ -81,6 +83,7 @@ export default function App() {
           </HashRouter>
         </AuthProvider>
       )}
+      </ErrorBoundary>
     </ThemeProvider>
   )
 }
