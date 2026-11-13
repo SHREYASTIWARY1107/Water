@@ -49,8 +49,9 @@ export default function App() {
           <HashRouter>
             <Routes>
               <Route element={<PublicOnlyRoute />}>
-                <Route path="/login" element={<AuthPage mode="login" />} />
-                <Route path="/signup" element={<AuthPage mode="signup" />} />
+                {/* key forces a fresh instance per route so state (e.g. "check your inbox") never leaks across */}
+                <Route path="/login" element={<AuthPage key="login" mode="login" />} />
+                <Route path="/signup" element={<AuthPage key="signup" mode="signup" />} />
               </Route>
               <Route element={<ProtectedRoute />}>
                 <Route
