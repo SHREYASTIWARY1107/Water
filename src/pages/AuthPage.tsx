@@ -74,7 +74,7 @@ export function AuthPage({ mode }: { mode: 'login' | 'signup' }) {
         <div className="absolute inset-0 -z-10 bg-gradient-to-br from-[var(--water-1)]/25 via-transparent to-[var(--water-3)]/20" />
         <Logo className="text-lg" />
         <div className="flex items-end gap-10">
-          <WaterBottle progress={0.68} className="h-80 w-40 animate-fade-up" />
+          <WaterBottle progress={0.68} className="h-80 w-40 shrink-0 animate-fade-up" />
           <div className="max-w-sm pb-6">
             <h2 className="text-4xl font-semibold tracking-tight text-balance">Stay effortlessly hydrated.</h2>
             <p className="mt-3 text-muted-foreground">
