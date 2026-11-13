@@ -27,10 +27,11 @@ jobs:
       - run: npm test
       - run: npm run build
         env:
-          # Set these under Settings → Secrets and variables → Actions → Variables.
-          # The anon/publishable key is public by design (RLS protects data).
-          VITE_SUPABASE_URL: ${{ vars.VITE_SUPABASE_URL }}
-          VITE_SUPABASE_ANON_KEY: ${{ vars.VITE_SUPABASE_ANON_KEY }}
+          # Override via Settings → Secrets and variables → Actions → Variables.
+          # The publishable key is public by design (it ships in the JS bundle; RLS protects data).
+          # NEVER put a service_role / sb_secret_ key here.
+          VITE_SUPABASE_URL: ${{ vars.VITE_SUPABASE_URL || 'https://qgjqujkfzkwevcpxyfzi.supabase.co' }}
+          VITE_SUPABASE_ANON_KEY: ${{ vars.VITE_SUPABASE_ANON_KEY || 'sb_publishable_1xehC0b8wP7yUuQKa_ccGQ_pUG-TWdV' }}
           VITE_BASE_PATH: /${{ github.event.repository.name }}/
       - uses: actions/upload-pages-artifact@v3
         with:
